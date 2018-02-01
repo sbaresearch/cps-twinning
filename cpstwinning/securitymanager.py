@@ -77,7 +77,8 @@ class VariableMonitoringThread(Thread):
                     name, val = spl_l
                     if self.rule['predicate'] == Predicates.MAXVAL:
                         if int(val) > self.rule['value']:
-                            logging.warning("WARNING! {} exceeded max value of {} ({}).".format(self.rule['var_name'], self.rule['value'], val))
+                            logging.warning("ALERT! '{}' tag [{}={}] exceeds max value of {}."\
+                                            .format(self.rule['plc'].name, self.rule['var_name'], val, self.rule['value']))
 
                             
 class VariableLinkPlcMonitoringThread(Thread):
@@ -112,7 +113,8 @@ class VariableLinkPlcMonitoringThread(Thread):
                                     if var['value'] != (val == 'True'):
                                         warn = True
                                 if warn:
-                                    logging.warning("WARNING! HMI variable '{}' does not equal PLC variable '{}'.".format(var['value'], val))
+                                    logging.warning("ALERT! '{}' tag [{}={}] does not equal '{}' tag [{}={}]."\
+                                                    .format(self.rule['hmi'].name, var['name'], var['value'], self.rule['plc'].name, self.rule['plc_var'], val))
 
 
 class VariableLinkHmiMonitoringThread(Thread):
@@ -143,4 +145,5 @@ class VariableLinkHmiMonitoringThread(Thread):
                                 if var['value'] != (val == 'True'):
                                     warn = True
                             if warn:
-                                logging.warning("WARNING! HMI variable '{}' does not equal PLC variable '{}'.".format(var['value'], val))
+                                logging.warning("ALERT! '{}' tag [{}={}] does not equal '{}' tag [{}={}]."\
+                                                    .format(self.rule['hmi'].name, var['name'], var['value'], self.rule['plc'].name, self.rule['plc_var'], val))

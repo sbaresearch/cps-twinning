@@ -121,6 +121,7 @@ class Hmi(Host):
                     value = 1 if var['value'] else 0
                 else:
                     raise RuntimeError('Unsupported type \'{}\'.'.format(type(var)))
+                logging.info("'{}' value changed {} -> {} in device '{}'.".format(name, old_value, value, self.name))
                 popens = {}
                 args = '192.168.0.1 --write {} {}={}'.format(var['mb_table'], var['mb_addr'], value)
                 popens[ "hmi" ] = self.popen('{} {}'.format(self.__get_base_hmi_mb_client_cmd(), args))
