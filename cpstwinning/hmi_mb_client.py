@@ -1,95 +1,113 @@
 #!/usr/bin/env python
 
+from cpstwinning.constants import LOG_FILE_LOC, LOG_LEVEL
+from cpstwinning.utils import ModbusTables
+from multiprocessing.connection import Listener
 from pymodbus.client.sync import ModbusTcpClient
 from pymodbus.bit_read_message import ReadCoilsResponse, ReadDiscreteInputsResponse
 from pymodbus.register_read_message import ReadHoldingRegistersResponse, ReadInputRegistersResponse
+from pymodbus.bit_write_message import WriteMultipleCoilsResponse
+from pymodbus.register_write_message import WriteMultipleRegistersResponse
+from cpstwinning.hmimessages import CloseMessage, ReadMessage, WriteMessage, ReadMessageResult, SuccessHmiMessage, \
+    FailedHmiMessage
 
-import argparse
 import sys
 import logging
+import utils
+import os
 
 UNIT = 0x01
 TIMEOUT = 100
+
 # Logging
-logging.basicConfig(filename='/tmp/cps-twinning.log', level=logging.DEBUG)
+logging.basicConfig(filename=LOG_FILE_LOC, level=LOG_LEVEL)
+logger = logging.getLogger('hmi_mb_client')
+
 
 class HmiMbClient(object):
-    
-    def __init__(self):
-        self.parse_args()
-        
-    def parse_args(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument("ip", help="display a tag's value")
-        parser.add_argument("--read", nargs='+', help="read a tag's value")
-        parser.add_argument("--write", nargs='+', help="write a tag's value")
 
-        args = parser.parse_args()
-        mb_tbls = {
-            'co': {'read': self.read_coils, 'write': self.write_coils},
-            'di': {'read': self.read_discrete_inputs},
-            'hr': {'read': self.read_holding_registers, 'write': self.write_registers},
-            'ir': {'read':  self.read_input_registers}
-            }
-        # TODO: Implement proper validation
-        if args.ip and args.read and len(args.read) == 2:
-            if args.read[0] in mb_tbls:
-                mb_tbls[args.read[0]]['read'](args.ip, int(args.read[1]))
-            else:
-                self.__output("Invalid Modbus table mode, use 'co', 'di', 'hr' or 'ir'.")
-        elif args.ip and args.write and len(args.write) == 2:
-            if args.write[0] in mb_tbls:
-                mthd = mb_tbls.get(args.write[0]).get('write')
-                if mthd is not None:
-                    addr, v = list(map(lambda x: int(x), args.write[1].split('=')))
-                    mthd(args.ip, addr, v)
-                else:
-                    self.__output("Cannot perform action, invalid Modbus table mode.")
-            else:
-                self.__output("Invalid Modbus table mode, use 'co', 'di', 'hr' or 'ir'.")
-        else:
-            self.__output('Invalid args.')
+    def __init__(self, name):
+        self.name = name
+        mb_tbls = ModbusTables()
+        self.actions = ('read', 'write')
+        self.mb_tbls = {
+            mb_tbls.CO: {self.actions[0]: self.read_coils, self.actions[1]: self.write_coils},
+            mb_tbls.DI: {self.actions[0]: self.read_discrete_inputs},
+            mb_tbls.HR: {self.actions[0]: self.read_holding_registers, self.actions[1]: self.write_registers},
+            mb_tbls.IR: {self.actions[0]: self.read_input_registers}
+        }
+        self.__init_listener()
+
+    def __init_listener(self):
+        tmp_base = utils.get_tmp_base_path_from_mkfile()
+        hmi_base_path = os.path.join(tmp_base, self.name)
+        # Create HMI base path if it does not exist
+        if not os.path.exists(hmi_base_path):
+            os.makedirs(hmi_base_path)
+        address = os.path.join(hmi_base_path, 'mb_socket')
+        # Ensure that socket does not exist
+        try:
+            os.unlink(address)
+        except OSError:
+            if os.path.exists(address):
+                logger.exception('Could not remove socket file.')
+        # Create listener
+        listener = Listener(address)
+        while True:
+            conn = listener.accept()
+            msg = conn.recv()
+            if isinstance(msg, ReadMessage):
+                conn.send(self.mb_tbls[msg.mb_table][self.actions[0]](msg.ip, msg.starting_addr))
+            elif isinstance(msg, WriteMessage):
+                conn.send(self.mb_tbls[msg.mb_table][self.actions[1]](msg.ip, msg.starting_addr, msg.values))
+            elif isinstance(msg, CloseMessage):
+                conn.close()
+                break
+        listener.close()
 
     def read_coils(self, ip, address):
         with ModbusTcpClient(ip, timeout=TIMEOUT) as client:
             result = client.read_coils(address - 1, 1, unit=UNIT)
             if isinstance(result, ReadCoilsResponse) and len(result.bits):
-                self.__output(result.bits[0])
+                return ReadMessageResult(result.bits[0])
 
     def read_holding_registers(self, ip, address):
         with ModbusTcpClient(ip, timeout=TIMEOUT) as client:
             result = client.read_holding_registers(address - 1, 1, unit=UNIT)
             if isinstance(result, ReadHoldingRegistersResponse) and len(result.registers):
-                self.__output(result.registers[0])
+                return ReadMessageResult(result.registers[0])
 
     def read_input_registers(self, ip, address):
         with ModbusTcpClient(ip, timeout=TIMEOUT) as client:
             result = client.read_input_registers(address - 1, 1, unit=UNIT)
             if isinstance(result, ReadInputRegistersResponse) and len(result.registers):
-                self.__output(result.registers[0])
-        
+                return ReadMessageResult(result.registers[0])
+
     def read_discrete_inputs(self, ip, address):
         with ModbusTcpClient(ip, timeout=TIMEOUT) as client:
             result = client.read_discrete_inputs(address - 1, 1, unit=UNIT)
             if isinstance(result, ReadDiscreteInputsResponse) and len(result.bits):
-                self.__output(result.bits[0])
+                return ReadMessageResult(result.bits[0])
 
-    def write_coils(self, ip, address, value):
+    def write_coils(self, ip, address, values):
         with ModbusTcpClient(ip, timeout=TIMEOUT) as client:
-            result = client.write_coils(address - 1, [value], unit=UNIT)
-        
-    def write_registers(self, ip, address, value):
-        with ModbusTcpClient(ip, timeout=TIMEOUT) as client:
-            result = client.write_registers(address - 1, [value], unit=UNIT)
+            result = client.write_coils(address - 1, values, unit=UNIT)
+            if isinstance(result, WriteMultipleCoilsResponse):
+                return SuccessHmiMessage()
+        return FailedHmiMessage()
 
-    def __output(self, out, flush=True):
-        print out
-        if flush:
-            sys.stdout.flush()
-            
+    def write_registers(self, ip, address, values):
+        with ModbusTcpClient(ip, timeout=TIMEOUT) as client:
+            result = client.write_registers(address - 1, values, unit=UNIT)
+            if isinstance(result, WriteMultipleRegistersResponse):
+                return SuccessHmiMessage()
+        return FailedHmiMessage()
+
 
 def main():
-    HmiMbClient()
+    if len(sys.argv) != 2:
+        raise RuntimeError('Wrong number of arguments. Usage: python hmi_mb_client.py <name>')
+    HmiMbClient(sys.argv[1])
 
 
 if __name__ == '__main__':

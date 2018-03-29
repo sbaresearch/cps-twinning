@@ -5,6 +5,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
+venv/
 build/
 develop-eggs/
 dist/
@@ -27,3 +28,7 @@ pip-delete-this-directory.txt
 # Eclipse
 .project
 .pydevproject
+
+
+# PyCharm
+.idea

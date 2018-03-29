@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 
-import re
-import pkgutil
+from constants import LOG_FILE_LOC, LOG_LEVEL
+
 import os
 import utils
-import sys
 import csv
+import logging
+
+# Logging
+logging.basicConfig(filename=LOG_FILE_LOC, level=LOG_LEVEL)
+logger = logging.getLogger('prepreprocessor')
 
 
 def patch_pous_h(tmp_path):
@@ -14,10 +18,11 @@ def patch_pous_h(tmp_path):
     # Open header file
     with open(pous_h_path, 'r') as f:
         for line in f:
-            lines.append(line)
-            if line == "#include \"accessor.h\"\n":
+            line = line.rstrip()
+            lines.append(line + '\n')
+            if line == "#include \"accessor.h\"":
                 lines.append("#include <pous_patch.h>\n")
-    
+
     if lines:
         # Create a new patched header file
         with open(pous_h_path, 'w') as f:
@@ -32,7 +37,7 @@ def patch_plc_runtime(pkg_filepath, tmp_path):
     plc_runtime_skeleton_c_path = os.path.join(pkg_filepath, 'plcruntime/src/plc_runtime_skeleton.c')
     # Path of the PLC runtime C source file
     plc_runtime_c_path = '{}/plc_runtime.c'.format(tmp_path)
-    
+
     # List to store located variable names
     vars = []
     program_name = None
@@ -52,7 +57,7 @@ def patch_plc_runtime(pkg_filepath, tmp_path):
             prog_variable = '__'.join(symbols_prog.split('.')[-2:])
             # Currently, we only support one program - so stop
             break
-        
+
         # Now parse variables section
         vars_reader = csv.reader(utils.filter_vars_csv_section(utils.variables_pattern_obj, f), delimiter=';')
         for row in vars_reader:
@@ -66,15 +71,16 @@ def patch_plc_runtime(pkg_filepath, tmp_path):
             symbols = row[3]
             var_name = "".join(symbols.rsplit(symbols_prog + '.'))
             vars.append(var_name)
-            
+
     if program_name is not None and prog_variable is not None and vars:
         # List of lines to write in PLC runtime C source file
         lines = []
         with open(plc_runtime_skeleton_c_path, 'r') as f:
             for line in f:
+                line = line.rstrip()
                 match = utils.prog_placeholder_pattern_obj.match(line)
                 if match:
-                    lines.append(line)
+                    lines.append(line + '\n')
                     lines.append('extern {} {};\n'.format(program_name, prog_variable))
                     continue
                 match = utils.vars_placeholder_pattern_obj.match(line)
@@ -84,7 +90,8 @@ def patch_plc_runtime(pkg_filepath, tmp_path):
                     # Join them together to be used in array
                     lines.append('{}\n'.format(', '.join(addr_var_l)))
                 else:
-                    lines.append(line)
+                    lines.append(line + '\n')
+
         if lines:
             # Create a new file for PLC runtime
             with open(plc_runtime_c_path, 'w') as f:
@@ -93,18 +100,21 @@ def patch_plc_runtime(pkg_filepath, tmp_path):
         else:
             raise RuntimeError("Could not parse PLC vars placeholder in '{}'.".format(plc_runtime_skeleton_c_path))
     else:
-        raise RuntimeError("Could not parse program variable and/or located variable declarations in '{}'.".format(loc_vars_csv_path))
+        raise RuntimeError(
+            "Could not parse program variable and/or located variable declarations in '{}'.".format(loc_vars_csv_path))
 
 
 def run():
-    # Get package path
-    pkg_filepath = utils.get_pkg_path()
-    # Get value of DSTDIR key in Makefile
-    tmp_path = utils.get_dstdir_path_from_mkfile(os.environ["PLC_NAME"])
-    patch_plc_runtime(pkg_filepath, tmp_path)
-    patch_pous_h(tmp_path)
+    try:
+        # Get package path
+        pkg_filepath = utils.get_pkg_path()
+        # Get value of DSTDIR key in Makefile
+        tmp_path = utils.get_dstdir_path_from_mkfile(os.environ["PLC_NAME"])
+        patch_plc_runtime(pkg_filepath, tmp_path)
+        patch_pous_h(tmp_path)
+    except Exception as ex:
+        logger.error(ex)
 
 
 if __name__ == '__main__':
     run()
-            

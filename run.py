@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
 from cpstwinning.cpstw import CpsTwinning
-from cpstwinning.cpstwrt import CpsTwinningRuntime
 from cpstwinning.cli import CpsTwinningCli as CLI
 
-import sys
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class CpsTwinningMain(CpsTwinningRuntime):
+class CpsTwinningMain(object):
 
     def __init__(self, name, net):
-
         self.name = name
         self.net = net
 
@@ -20,7 +20,6 @@ class CpsTwinningMain(CpsTwinningRuntime):
 
 
 if __name__ == "__main__":
-
     net = CpsTwinning()
 
     demo = CpsTwinningMain(

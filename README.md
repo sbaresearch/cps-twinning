@@ -40,11 +40,12 @@ $ export PATH=/home/<user>/matiec:$PATH
 
 Finally, clone this repository and install CPS Twinning:
 ```
-$ git clone https://github.com/cps-twinning/cps-twinning.git
+$ git clone https://github.com/sbaresearch/cps-twinning.git
 $ cd cps-twinning
 $ virtualenv env
 $ source env/bin/activate
-(env)$ pip install .	
+(env)$ pip install -r requirements.txt
+(env)$ pip install .
 ```
 
 ## Usage

@@ -40,17 +40,17 @@
 			<InternalElement Name="LogicalConnectionA" RefBaseSystemUnitPath="LogicalConnectionSystemUnitClassLib/LogicalConnection" ID="82b63afa-6d04-440a-ad2b-3683988b2a3c">
 				<ExternalInterface Name="EP1" ID="ac099098-5cbf-4043-b8ab-8b84541af01e" />
 				<ExternalInterface Name="EP2" ID="cb2a56c1-7161-45e4-ab54-9f11c18f488f" />
-				<InternalElement Name="VelocityModbusTCPDataPackage" ID="fe008bd1-fe89-4bae-a377-eb4961130f95">
+				<InternalElement Name="VelocityModbusTCPDataPacket" ID="fe008bd1-fe89-4bae-a377-eb4961130f95">
 					<InternalLink Name="PLC1 Velocity - HMI1 Velocity" RefPartnerSideB="{068ec45a-1002-4a75-8e27-21d8e0da6e3d}:Velocity" RefPartnerSideA="{1332aff9-f295-466e-84c2-0eb5902996a3}:Velocity" />
-					<RoleRequirements RefBaseRoleClassPath="ModbusRoleClassLib/ModbusTCPDataPackage" />
+					<RoleRequirements RefBaseRoleClassPath="ModbusRoleClassLib/ModbusTCPDataPacket" />
 				</InternalElement>
-				<InternalElement Name="StartModbusTCPDataPackage" ID="493987a0-cfd9-4fd8-8396-d00abb939d8f">
+				<InternalElement Name="StartModbusTCPDataPacket" ID="493987a0-cfd9-4fd8-8396-d00abb939d8f">
 					<InternalLink Name="PLC1 Start - HMI1 Start" RefPartnerSideA="{1332aff9-f295-466e-84c2-0eb5902996a3}:Start" RefPartnerSideB="{068ec45a-1002-4a75-8e27-21d8e0da6e3d}:Start" />
-					<RoleRequirements RefBaseRoleClassPath="ModbusRoleClassLib/ModbusTCPDataPackage" />
+					<RoleRequirements RefBaseRoleClassPath="ModbusRoleClassLib/ModbusTCPDataPacket" />
 				</InternalElement>
-				<InternalElement Name="StopModbusTCPDataPackage" ID="8f147ac4-e38d-447f-bc5e-3fbb80ae4533">
+				<InternalElement Name="StopModbusTCPDataPacket" ID="8f147ac4-e38d-447f-bc5e-3fbb80ae4533">
 					<InternalLink Name="PLC1 Stop - HMI1 Stop" RefPartnerSideA="{1332aff9-f295-466e-84c2-0eb5902996a3}:Stop" RefPartnerSideB="{068ec45a-1002-4a75-8e27-21d8e0da6e3d}:Stop" />
-					<RoleRequirements RefBaseRoleClassPath="ModbusRoleClassLib/ModbusTCPDataPackage" />
+					<RoleRequirements RefBaseRoleClassPath="ModbusRoleClassLib/ModbusTCPDataPacket" />
 				</InternalElement>
 				<InternalLink Name="PLC1 - HMI1" RefPartnerSideB="{068ec45a-1002-4a75-8e27-21d8e0da6e3d}:Endpoint" RefPartnerSideA="{853ac66a-bf5c-493e-93a1-bd945da5304d}:Endpoint" />
 				<RoleRequirements RefBaseRoleClassPath="CommunicationRoleClassLib/LogicalNetwork/LogicalConnection" />
@@ -62,7 +62,7 @@
 				<ExternalInterface Name="Endpoint" ID="fb1b9a87-962a-4db8-bf50-e1ea0220438d" RefBaseClassPath="CommunicationInterfaceClassLib/CommunicationPhysicalSocket">
 					<Attribute Name="mac" AttributeDataType="xs:string">
 						<Description>MAC address</Description>
-						<Value>ee:33:4e:11:b6:b3</Value>
+						<Value>08:00:27:37:30:f0</Value>
 					</Attribute>
 					<Attribute Name="ip">
 						<Description>IP address</Description>
@@ -108,7 +108,7 @@
 				<ExternalInterface Name="Endpoint" RefBaseClassPath="CommunicationInterfaceClassLib/CommunicationPhysicalSocket" ID="a9dd6d69-81e8-4ea4-8477-d96ba9ac22a5">
 					<Attribute Name="mac" AttributeDataType="xs:string">
 						<Description>MAC address</Description>
-						<Value>66:ce:1c:81:5c:fc</Value>
+						<Value>28:63:36:9b:0a:ee</Value>
 					</Attribute>
 					<Attribute Name="ip" AttributeDataType="xs:string">
 						<Description>IP address</Description>
@@ -440,7 +440,7 @@
 		<RoleClass Name="ModbusMap" />
 		<RoleClass Name="ModbusMaster" />
 		<RoleClass Name="ModbusTCPMaster" RefBaseClassPath="ModbusRoleClassLib/ModbusMaster" />
-		<RoleClass Name="ModbusTCPDataPackage" />
+		<RoleClass Name="ModbusTCPDataPacket" />
 	</RoleClassLib>
 	<RoleClassLib Name="ProgramBlocksRoleClassLib">
 		<Version>1.0.0</Version>

@@ -3,14 +3,16 @@
 import re
 import os
 import pkgutil
+import logging
 
+logger = logging.getLogger(__name__)
 
 # Regex pattern of located variable declarations
-located_vars_pattern_obj = re.compile(r'__LOCATED_VAR\(([a-zA-Z]+),([__a-zA-Z0-9]+),.*\)')
+located_vars_pattern_obj = re.compile(r'__LOCATED_VAR\(([a-zA-Z]+),([_a-zA-Z0-9]+),.*\)')
 # Regex pattern of program placeholder
-prog_placeholder_pattern_obj = re.compile(r'\/\/\sPROGRAM\n', re.M)
+prog_placeholder_pattern_obj = re.compile(r'\/\/\sPROGRAM', re.M)
 # Regex pattern of vars placeholder
-vars_placeholder_pattern_obj = re.compile(r'\/\/\sPLC_VARS\n', re.M)
+vars_placeholder_pattern_obj = re.compile(r'\/\/\sPLC_VARS', re.M)
 # Regex pattern of TMPBASE key
 tmp_base_mkfile_pattern_obj = re.compile(r'TMPBASE=(.*)')
 # Regex pattern of DSTDIR key
@@ -21,6 +23,31 @@ programs_pattern_obj = re.compile(r'\/\/\sPrograms')
 variables_pattern_obj = re.compile(r'\/\/\sVariables')
 
 
+class UnknownPlcTagException(Exception):
+    pass
+
+
+class ModbusTables(object):
+    CO = "co"
+    DI = "di"
+    HR = "hr"
+    IR = "ir"
+
+    def __setattr__(self, *_):
+        pass
+
+
+def get_tmp_base_path_from_mkfile():
+    # Open Makefile
+    mk_file_path = os.path.join(get_pkg_path(), 'plcruntime/Makefile')
+    with open(mk_file_path) as f:
+        for line in f:
+            line = line.rstrip()
+            match_tmp_base = tmp_base_mkfile_pattern_obj.match(line)
+            if match_tmp_base:
+                return match_tmp_base.group(1)
+
+
 def get_dstdir_path_from_mkfile(plc_name):
     # Open Makefile
     mk_file_path = os.path.join(get_pkg_path(), 'plcruntime/Makefile')
@@ -28,6 +55,7 @@ def get_dstdir_path_from_mkfile(plc_name):
     dst_path_value = None
     with open(mk_file_path) as f:
         for line in f:
+            line = line.rstrip()
             match_tmp_base = tmp_base_mkfile_pattern_obj.match(line)
             if match_tmp_base:
                 tmp_base = match_tmp_base.group(1)
@@ -68,4 +96,3 @@ def filter_vars_csv_section(pattern, lines):
             match = pattern.match(line)
             if match:
                 matched = True
-

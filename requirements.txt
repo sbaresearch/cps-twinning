@@ -1,0 +1,4 @@
+lxml==3.4.2
+six==1.11.0
+pymodbus==1.4.0
+scapy==2.3.3

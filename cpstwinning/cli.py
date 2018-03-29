@@ -6,7 +6,7 @@ from cpstwinning.twins import Plc, Motor, Hmi
 
 
 class CpsTwinningCli(CLI):
-    
+
     def do_twinning(self, line):
         """Starts the twinning process.
            Usage: twinning <path_to_aml>
@@ -17,7 +17,7 @@ class CpsTwinningCli(CLI):
             return
         else:
             self.mn.twinning(args[0])
-            
+
     def do_get_tag(self, line):
         """Retrieves a tag from a PLC.
            Usage: get_tag <plc_name> <tag_name>
@@ -31,8 +31,8 @@ class CpsTwinningCli(CLI):
                 if isinstance(node, Plc) or isinstance(node, Hmi):
                     output(node.get_var_value(args[1]))
                     return
-        error("No PLC found with name '{}'.\n".format(args[0]))
-                
+        error("No PLC or HMI found with name '{}'.\n".format(args[0]))
+
     def do_set_tag(self, line):
         """Sets a tag in a PLC.
            Usage: set_tag <plc_name> <tag_name> <value>
@@ -46,7 +46,7 @@ class CpsTwinningCli(CLI):
                 if isinstance(node, Plc) or isinstance(node, Hmi):
                     node.set_var_value(args[1], args[2])
                     return
-        error("No PLC found with name '{}'.\n".format(args[0]))
+        error("No PLC or HMI found with name '{}'.\n".format(args[0]))
 
     def do_show_tags(self, line):
         """Shows all available tags of a PLC.
@@ -61,8 +61,8 @@ class CpsTwinningCli(CLI):
                 if isinstance(node, Plc) or isinstance(node, Hmi):
                     output(node.show_tags())
                 return
-        error("No PLC found with name '{}'.\n".format(args[0]))
-        
+        error("No PLC or HMI found with name '{}'.\n".format(args[0]))
+
     def do_stop_plc(self, line):
         """Stops a PLC.
            Usage: stop_plc <plc_name>
@@ -71,13 +71,13 @@ class CpsTwinningCli(CLI):
         if len(args) != 1:
             error('Invalid number of args: stop_plc <plc_name>\n')
             return
-        
+
         for node in self.mn.values():
             if node.name == args[0] and isinstance(node, Plc):
                 output(node.stop())
                 return
         error("No PLC found with name '{}'.\n".format(args[0]))
-        
+
     def do_start_plc(self, line):
         """Starts a PLC.
            Usage: start_plc <plc_name>
@@ -86,13 +86,13 @@ class CpsTwinningCli(CLI):
         if len(args) != 1:
             error('Invalid number of args: start_plc <plc_name>\n')
             return
-        
+
         for node in self.mn.values():
             if node.name == args[0] and isinstance(node, Plc):
                 output(node.start())
                 return
         error("No PLC found with name '{}'.\n".format(args[0]))
-        
+
     def do_show_motor_status(self, line):
         """Shows a motor's status.
            Usage: show_motor_status <motor_name>
@@ -107,10 +107,11 @@ class CpsTwinningCli(CLI):
                 output(dev.get_status())
                 return
         error("No motor found with name '{}'.\n".format(args[0]))
-        
+
     def do_devices(self, line):
-        "List all devices (motors, pumps etc.)."
+        """Lists all devices (motors, pumps etc.).
+           Usage: devices
+        """
         devices = getattr(self.mn, 'physical_devices', [])
         out = ' '.join(str(x) for x in devices) if devices else ''
         output('available devices are: \n{}\n'.format(out))
-        
