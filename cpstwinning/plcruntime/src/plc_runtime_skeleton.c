@@ -40,7 +40,6 @@ pthread_t plc_thread;
 sem_t sem_plc_timer;
 sem_t sem_plc_vars;
 timer_t timer;
-struct timespec CURRENT_TIME;
 
 // PROGRAM
 
@@ -161,9 +160,17 @@ void run(long int tv_sec, long int tv_nsec)
 
 }
 
+void get_time(IEC_TIME *CURRENT_TIME)
+{
+    struct timespec tmp_time;
+    clock_gettime(CLOCK_REALTIME, &tmp_time);
+    CURRENT_TIME->tv_sec = tmp_time.tv_sec;
+    CURRENT_TIME->tv_nsec = tmp_time.tv_nsec;
+}
+
 void timer_notify(sigval_t val)
 {
-	clock_gettime(CLOCK_REALTIME, &CURRENT_TIME);
+	get_time(&__CURRENT_TIME);
 	sem_post(&sem_plc_timer);
 }
 
@@ -200,7 +207,7 @@ void plc_thread_routine_c(void *arg)
 	{
 		sem_post(&sem_plc_vars);
 		sem_wait(&sem_plc_timer);
-		run(CURRENT_TIME.tv_sec, CURRENT_TIME.tv_nsec);
+		run(__CURRENT_TIME.tv_sec, __CURRENT_TIME.tv_nsec);
 	}
 #ifdef DEBUG
 	printf("Exit PLC thread.\n");
