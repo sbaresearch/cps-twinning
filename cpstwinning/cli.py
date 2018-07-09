@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 
-from mininet.cli import CLI
+from mininet.wifi.cli import CLI_wifi
 from mininet.log import output, error
-from cpstwinning.twins import Plc, Motor, Hmi
+from cpstwinning.twins import Plc, Motor, Hmi, RfidReaderMqttWiFi
 
 
-class CpsTwinningCli(CLI):
+class CpsTwinningCli(CLI_wifi):
+    # Override 'mininet' prompt text
+    prompt = 'cpstwinning> '
 
     def do_twinning(self, line):
         """Starts the twinning process.
@@ -44,7 +46,7 @@ class CpsTwinningCli(CLI):
         for node in self.mn.values():
             if node.name == args[0]:
                 if isinstance(node, Plc) or isinstance(node, Hmi):
-                    node.set_var_value(args[1], args[2])
+                    output(node.set_var_value(args[1], args[2]))
                     return
         error("No PLC or HMI found with name '{}'.\n".format(args[0]))
 
@@ -108,10 +110,49 @@ class CpsTwinningCli(CLI):
                 return
         error("No motor found with name '{}'.\n".format(args[0]))
 
-    def do_devices(self, line):
+    def do_devices(self, _line):
         """Lists all devices (motors, pumps etc.).
            Usage: devices
         """
         devices = getattr(self.mn, 'physical_devices', [])
         out = ' '.join(str(x) for x in devices) if devices else ''
         output('available devices are: \n{}\n'.format(out))
+
+    def do_start_replication(self, _line):
+        """Starts the replication module.
+           Usage: start_replication
+        """
+        self.mn.start_replication()
+
+    def do_stop_replication(self, _line):
+        """Stops the replication module.
+           Usage: stop_replication
+        """
+        self.mn.stop_replication()
+
+      def do_rfid_read(self, line):
+        """Reads a value by a RFID reader.
+           Usage: rfid_read <rfid_reader_name> <value>
+        """
+        args = line.split()
+        if len(args) != 2:
+            error('Invalid number of args: nfc_read <nfc_reader_name> <value>\n')
+            return
+        for node in self.mn.values():
+            if node.name == args[0]:
+                if isinstance(node, RfidReaderMqttWiFi):
+                    output(node.read_value(args[1]))
+                    return
+        error("No NFC reader found with name '{}'.\n".format(args[0]))
+
+    def do_start_state_logging(self, _line):
+        """Starts the visualization module.
+           Usage: start_state_logging
+        """
+        self.mn.start_state_logging()
+
+    def do_stop_state_logging(self, _line):
+        """Stops the state logging module.
+           Usage: stop_state_logging
+        """
+        self.mn.stop_state_logging()

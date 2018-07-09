@@ -88,20 +88,21 @@ class VariableMonitoringThread(Thread):
         self.conn.send(MonitorMessage(tag_names))
         while True:
             try:
-                result = self.conn.recv()
-                if isinstance(result, UnknownPlcTagException):
-                    raise UnknownPlcTagException(result)
-                elif isinstance(result, TerminateMessage):
-                    logger.info("Terminating monitoring of '{}'.".format(self.rule['var_name']))
-                    break
-                elif isinstance(result, MonitorResponseMessage):
-                    if self.rule['predicate'] == Predicates.MAXVAL:
-                        if int(result.value) > self.rule['value']:
-                            logger.warning("ALERT! '{}' tag [{}={}] exceeds max value of {}."
-                                           .format(self.rule['plc'].name, self.rule['var_name'], result.value,
-                                                   self.rule['value']))
-                else:
-                    logger.error("Received unexpected message type '%s'.", type(result))
+                if self.conn.poll():
+                    result = self.conn.recv()
+                    if isinstance(result, UnknownPlcTagException):
+                        raise UnknownPlcTagException(result)
+                    elif isinstance(result, TerminateMessage):
+                        logger.info("Terminating monitoring of '{}'.".format(self.rule['var_name']))
+                        break
+                    elif isinstance(result, MonitorResponseMessage):
+                        if self.rule['predicate'] == Predicates.MAXVAL:
+                            if int(result.value) > self.rule['value']:
+                                logger.warning("ALERT! '{}' tag [{}={}] exceeds max value of {}."
+                                               .format(self.rule['plc'].name, self.rule['var_name'], result.value,
+                                                       self.rule['value']))
+                    else:
+                        logger.error("Received unexpected message type '%s'.", type(result))
             except EOFError:
                 logger.exception("Received EOF.")
                 break

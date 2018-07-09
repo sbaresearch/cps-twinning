@@ -3,6 +3,7 @@
 import re
 import os
 import pkgutil
+import time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,14 @@ variables_pattern_obj = re.compile(r'\/\/\sVariables')
 
 
 class UnknownPlcTagException(Exception):
+    pass
+
+
+class NotSupportedPlcTagTypeException(Exception):
+    pass
+
+
+class NotSupportedPlcTagClassException(Exception):
     pass
 
 
@@ -96,3 +105,22 @@ def filter_vars_csv_section(pattern, lines):
             match = pattern.match(line)
             if match:
                 matched = True
+
+
+# Cf. https://stackoverflow.com/a/5998359/5107545
+def current_ms():
+    return int(round(time.time() * 1000))
+
+
+# Cf. https://stackoverflow.com/a/11233293/5107545
+def setup_logger(name, log_file, formatter, level=logging.WARNING):
+    """Method that is used for setting up multiple loggers."""
+
+    handler = logging.FileHandler(log_file)
+    handler.setFormatter(formatter)
+
+    log = logging.getLogger(name)
+    log.setLevel(level)
+    log.addHandler(handler)
+
+    return log

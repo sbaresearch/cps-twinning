@@ -3,6 +3,10 @@
 from lxml import etree
 from cpstwinning.securitymanager import Predicates, RuleTypes
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class AmlParser(object):
 
@@ -12,6 +16,10 @@ class AmlParser(object):
         self.hmis = []
         self.motors = []
         self.switches = []
+        self.aps = []
+        self.mqttbrkrs = []
+        self.rfidrs = []
+        self.iiotgws = []
         self.security_rules = {}
         self.run()
 
@@ -162,11 +170,19 @@ class AmlParser(object):
                             base_system_unit_path = plc_var_map_ie.get('RefBaseSystemUnitPath')
                             if base_system_unit_path == 'CPSTwinningSystemUnitClassLib/PLCVarMap':
                                 motor_var_name = get_name_attr(ext_intf[0])
-                                motor_var_idx = motor_variables.index(
-                                    filter(lambda n: n.get('name') == motor_var_name, motor_variables)[0])
+                                filtered_motor_var_name = filter(lambda n: n.get('name') == motor_var_name,
+                                                                 motor_variables)
+                                if len(filtered_motor_var_name) > 0:
+                                    motor_var_idx = motor_variables.index(filtered_motor_var_name[0])
+                                else:
+                                    logger.warn(
+                                        'Could not successfully initialize Modbus map, because PLC var [name=%s]' +
+                                        ' could not be found.', motor_var_name)
                     side = 'b'
                 if plc_var_name is not None and motor_var_idx is not None:
                     plc_var_map[plc_var_name.upper()] = motor_var_idx
+                else:
+                    logger.warn('Could not add variable to PLC var map for element.', el)
 
             return plc_var_map
 
@@ -188,7 +204,11 @@ class AmlParser(object):
                         raise RuntimeError('Unsupported type found ({}).'.format(t))
 
                     motor_variables.append({'name': name, 'value': init_val})
-
+                else:
+                    logger.warn(
+                        'Could not add motor variable [name=%s]. ' +
+                        'No data type has been specified for this variable in the specification.',
+                        name)
             return motor_variables
 
         def get_plc_name_for_motor(el):
@@ -232,42 +252,51 @@ class AmlParser(object):
                     # Get Name of PLC
                     return get_name_by_ref(partner_ref)
 
-        def get_switch_links(switch_el):
+        def get_comm_physical_socket_links(el):
 
-            def get_switch_endpoints_refs(el):
-                endpoints = el.xpath(
-                    './InternalElement/ExternalInterface['
-                    '@RefBaseClassPath=\"CommunicationInterfaceClassLib/SwitchCommunicationPhysicalSocket\"]')
-                if len(endpoints):
-                    e0 = endpoints[0]
-                    portlist = e0.getparent()
-                    portlist_id = get_id_attr(portlist)
-                    return list(map(lambda x: '{{{}}}:{}'.format(portlist_id, get_name_attr(x)), endpoints))
+            def get_links(ref_base_class_path):
 
-            def get_name_by_ref(ref_el):
-                tmp_id = ref_el[ref.find("{") + 1:ref_el.find("}")]
-                ie = root.xpath('./InstanceHierarchy/InternalElement/InternalElement[@ID=\"{}\"]/..'.format(tmp_id))
-                if len(ie):
-                    return get_name_attr(ie[0])
+                def get_endpoints_refs():
+                    endpoints = el.xpath(
+                        './InternalElement/ExternalInterface['
+                        '@RefBaseClassPath=\"' + ref_base_class_path + '\"]')
+                    if len(endpoints):
+                        e0 = endpoints[0]
+                        portlist = e0.getparent()
+                        portlist_id = get_id_attr(portlist)
+                        return list(map(lambda x: '{{{}}}:{}'.format(portlist_id, get_name_attr(x)), endpoints))
 
-            endpoint_refs = get_switch_endpoints_refs(switch_el)
-            internal_links = root.xpath('./InstanceHierarchy/InternalElement' +
-                                        '/RoleRequirements[@RefBaseRoleClassPath=\"CommunicationRoleClassLib'
-                                        '/PhysicalNetwork\"]/../InternalElement/InternalLink')
-            partner_refs = []
-            side_a = 'RefPartnerSideA'
-            side_b = 'RefPartnerSideB'
-            for internal_link in internal_links:
-                if internal_link.get(side_a) in endpoint_refs:
-                    partner_refs.append(internal_link.get(side_b))
-                elif internal_link.get(side_b) in endpoint_refs:
-                    partner_refs.append(internal_link.get(side_a))
+                def get_name_by_ref(ref_el):
+                    tmp_id = ref_el[ref_el.find("{") + 1:ref_el.find("}")]
+                    ie = root.xpath('./InstanceHierarchy/InternalElement/InternalElement[@ID=\"{}\"]/..'.format(tmp_id))
+                    if len(ie):
+                        return get_name_attr(ie[0])
 
-            switch_links = []
-            for ref in partner_refs:
-                switch_links.append(get_name_by_ref(ref))
+                endpoint_refs = get_endpoints_refs()
+                if endpoint_refs is None:
+                    return []
 
-            return switch_links
+                internal_links = root.xpath('./InstanceHierarchy/InternalElement' +
+                                            '/RoleRequirements[@RefBaseRoleClassPath=\"CommunicationRoleClassLib'
+                                            '/PhysicalNetwork\"]/../InternalElement/InternalLink')
+                partner_refs = []
+                side_a = 'RefPartnerSideA'
+                side_b = 'RefPartnerSideB'
+                for internal_link in internal_links:
+                    if internal_link.get(side_a) in endpoint_refs:
+                        partner_refs.append(internal_link.get(side_b))
+                    elif internal_link.get(side_b) in endpoint_refs:
+                        partner_refs.append(internal_link.get(side_a))
+
+                links = []
+                for ref in partner_refs:
+                    links.append(get_name_by_ref(ref))
+                return links
+
+            switch_ref_base_class_path = "CommunicationInterfaceClassLib/SwitchCommunicationPhysicalSocket"
+            wireless_ref_base_class_path = "CommunicationInterfaceClassLib/WirelessCommunicationPhysicalSocket"
+
+            return get_links(switch_ref_base_class_path) + get_links(wireless_ref_base_class_path)
 
         def retrieve_var_constraints(el, plc_name):
             attrs_w_constraints = el.xpath(
@@ -296,6 +325,22 @@ class AmlParser(object):
                             print "WARNING: Skipped unsupported predicate '{}'.\n".format(predicate_el.tag)
 
             return constraints
+
+        def get_attr_value(ie_el, name):
+            attr_val = ie_el.xpath('./Attribute[@Name=\"' + name + '\"]/Value/text()')
+            if len(attr_val):
+                return attr_val[0]
+
+        def get_generic_cmds(ie_el):
+            ie_progs = ie_el.xpath(
+                './InternalElement/RoleRequirements[@RefBaseRoleClassPath=\"ProgramRoleClassLib/GenericProgram\"]' +
+                '/../InternalElement/RoleRequirements' +
+                '[@RefBaseRoleClassPath=\"ProgramRoleClassLib/GenericProgram/GenericCommand\"]/..'
+            )
+            cmds = []
+            for ie_prog in ie_progs:
+                cmds.append(get_attr_value(ie_prog, 'cmd'))
+            return cmds
 
         # def get_hmi_vars(el):
         #
@@ -339,6 +384,7 @@ class AmlParser(object):
         self.security_rules[RuleTypes().VARCONSTRAINT] = []
         self.security_rules[RuleTypes().VARLINKCONSTRAINT] = []
 
+        # HMIs
         for ie_hmi in root.xpath(
                 './InstanceHierarchy/InternalElement/RoleRequirements['
                 '@RefBaseRoleClassPath=\"AutomationMLExtendedRoleClassLib/HMI\"]/..'):
@@ -347,6 +393,7 @@ class AmlParser(object):
             # get_hmi_vars(ie_hmi)
             self.hmis.append(hmi)
 
+        # PLCs
         for ie_plc in root.xpath(
                 './InstanceHierarchy/InternalElement/RoleRequirements['
                 '@RefBaseRoleClassPath=\"AutomationMLCSRoleClassLib/ControlEquipment/Controller/PLC\"]/..'):
@@ -362,6 +409,7 @@ class AmlParser(object):
 
             self.security_rules[RuleTypes().VARCONSTRAINT].extend(retrieve_var_constraints(ie_plc, plc['name']))
 
+        # Motors
         for ie_motor in root.xpath(
                 './InstanceHierarchy/InternalElement/RoleRequirements['
                 '@RefBaseRoleClassPath=\"ConveyorComponentsRoleClassLib/Motor\"]/..'):
@@ -374,12 +422,79 @@ class AmlParser(object):
             }
             self.motors.append(motor)
 
+        # MQTT Brokers
+        for ie_mqttbr in root.xpath(
+                './InstanceHierarchy/InternalElement/RoleRequirements['
+                '@RefBaseRoleClassPath=\"ServiceRoleClassLib/MQTTBroker\"]/..'):
+            mqtt_brkr = {
+                'name': get_name_attr(ie_mqttbr),
+                'network': get_network_config(ie_mqttbr),
+                'mqtt_conf': get_attr_value(ie_mqttbr, 'configuration-path')
+            }
+            self.mqttbrkrs.append(mqtt_brkr)
+
+        # RFID readers
+        for ie_rfidr in root.xpath(
+                './InstanceHierarchy/InternalElement/RoleRequirements['
+                '@RefBaseRoleClassPath=\"IIoTRoleClassLib/RFIDReaderMQTTWiFi\"]/..'):
+            rfidr_progs = ie_rfidr.xpath('./InternalElement/RoleRequirements['
+                                         '@RefBaseRoleClassPath=\"ProgramRoleClassLib/RFIDReaderMQTTProgram\"]/..')
+            if len(rfidr_progs):
+                rfidr_prog = rfidr_progs[0]
+                rfidr = {
+                    'name': get_name_attr(ie_rfidr),
+                    'network': get_network_config(ie_rfidr),
+                    'host': get_attr_value(rfidr_prog, 'host'),
+                    'topic': get_attr_value(rfidr_prog, 'topic'),
+                    'auth': {
+                        'username': get_attr_value(rfidr_prog, 'username'),
+                        'password': get_attr_value(rfidr_prog, 'password')
+                    }
+                }
+                self.rfidrs.append(rfidr)
+            else:
+                logger.warn(
+                    'Could not find program XML element for RFID reader [name={}].'.format(get_name_attr(ie_rfidr)))
+
+        # IIoT Gateways
+        for ie_iiotgw in root.xpath(
+                './InstanceHierarchy/InternalElement/RoleRequirements['
+                '@RefBaseRoleClassPath=\"IIoTRoleClassLib/IIoTGateway\"]/..'):
+            iiotgw = {
+                'name': get_name_attr(ie_iiotgw),
+                'network': get_network_config(ie_iiotgw),
+                'cmds': get_generic_cmds(ie_iiotgw)
+            }
+            self.iiotgws.append(iiotgw)
+
+        # Switches
         for ie_switch in root.xpath(
                 './InstanceHierarchy/InternalElement/RoleRequirements['
                 '@RefBaseRoleClassPath=\"NetworkComponentsRoleClassLib/Switch\"]/..'):
-            switch = {'name': get_name_attr(ie_switch), 'links': get_switch_links(ie_switch)}
+            switch = {'name': get_name_attr(ie_switch), 'links': get_comm_physical_socket_links(ie_switch)}
             self.switches.append(switch)
 
+        # Access Points
+        for ie_ap in root.xpath(
+                './InstanceHierarchy/InternalElement/RoleRequirements['
+                '@RefBaseRoleClassPath=\"NetworkComponentsRoleClassLib/AP\"]/..'):
+            ap = {
+                'name': get_name_attr(ie_ap),
+                'links': get_comm_physical_socket_links(ie_ap),
+                'ssid': get_attr_value(ie_ap, 'ssid'),
+                'mode': get_attr_value(ie_ap, 'mode'),
+                'channel': get_attr_value(ie_ap, 'channel'),
+                'encrypt': get_attr_value(ie_ap, 'encrypt'),
+                'password': get_attr_value(ie_ap, 'password')
+            }
+            # Check if AP is connected to any switch and remove duplicate links
+            for sw in self.switches:
+                if ap['name'] in sw['links'] and sw['name'] in ap['links']:
+                    ap['links'].remove(sw['name'])
+            # Add AP to list
+            self.aps.append(ap)
+
+        # Link constraints
         var_link_constraints = []
         # Variable Link Constraints
         for ie_var_link_constraints in root.xpath(

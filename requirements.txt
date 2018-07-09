@@ -1,4 +1,7 @@
 lxml==3.4.2
 six==1.11.0
 pymodbus==1.4.0
-scapy==2.3.3
+scapy==2.4.0
+git+https://github.com/dpallot/simple-websocket-server.git#egg=simple-websocket-server-0.1.0
+kafka-python==1.4.0
+paho-mqtt==1.3.1

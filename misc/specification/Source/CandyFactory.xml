@@ -1,0 +1,164 @@
+<?xml version='1.0' encoding='utf-8'?>
+<project xmlns:ns1="http://www.plcopen.org/xml/tc6_0201" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns="http://www.plcopen.org/xml/tc6_0201">
+  <fileHeader companyName="Unknown" productName="Unnamed" productVersion="1" creationDateTime="2018-05-09T18:27:07"/>
+  <contentHeader name="Unnamed" modificationDateTime="2018-05-30T12:00:54">
+    <coordinateInfo>
+      <fbd>
+        <scaling x="0" y="0"/>
+      </fbd>
+      <ld>
+        <scaling x="0" y="0"/>
+      </ld>
+      <sfc>
+        <scaling x="0" y="0"/>
+      </sfc>
+    </coordinateInfo>
+  </contentHeader>
+  <types>
+    <dataTypes/>
+    <pous>
+      <pou name="program0" pouType="program">
+        <interface>
+          <localVars>
+            <variable name="StartConveyorBelt">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE"/>
+              </initialValue>
+            </variable>
+            <variable name="StopConveyorBelt">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE"/>
+              </initialValue>
+            </variable>
+            <variable name="CandyCall">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE"/>
+              </initialValue>
+            </variable>
+            <variable name="ConveyorRun">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE"/>
+              </initialValue>
+            </variable>
+            <variable name="ConveyorVelocity">
+              <type>
+                <INT/>
+              </type>
+              <initialValue>
+                <simpleValue value="0"/>
+              </initialValue>
+            </variable>
+            <variable name="ExtractorStart">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE"/>
+              </initialValue>
+            </variable>
+            <variable name="ExtractorRunning">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE"/>
+              </initialValue>
+            </variable>
+            <variable name="ExtractorDone">
+              <type>
+                <BOOL/>
+              </type>
+              <initialValue>
+                <simpleValue value="FALSE"/>
+              </initialValue>
+            </variable>
+            <variable name="SelectedCandy">
+              <type>
+                <INT/>
+              </type>
+              <initialValue>
+                <simpleValue value="0"/>
+              </initialValue>
+            </variable>
+            <variable name="DetectedCandy">
+              <type>
+                <INT/>
+              </type>
+              <initialValue>
+                <simpleValue value="0"/>
+              </initialValue>
+            </variable>
+            <variable name="ExtractorDoneTON">
+              <type>
+                <derived name="TON"/>
+              </type>
+            </variable>
+            <variable name="ExtractorDoneTimer">
+              <type>
+                <TIME/>
+              </type>
+              <initialValue>
+                <simpleValue value="T#1961ms"/>
+              </initialValue>
+            </variable>
+          </localVars>
+        </interface>
+        <body>
+          <ST>
+            <xhtml:p><![CDATA[ConveyorRun := (StartConveyorBelt OR ConveyorRun) AND NOT StopConveyorBelt AND NOT ExtractorRunning;
+
+IF SelectedCandy = DetectedCandy AND NOT (SelectedCandy = 0 AND DetectedCandy = 0) AND ConveyorRun THEN
+    SelectedCandy := 0;
+    CandyCall := TRUE;
+ELSE
+    CandyCall := FALSE;
+END_IF;
+
+ExtractorDoneTON(
+     IN := ExtractorRunning,
+     PT := ExtractorDoneTimer,
+     Q => ExtractorDone);
+
+IF CandyCall THEN
+    StopConveyorBelt := TRUE;
+    ConveyorRun := FALSE;
+    ExtractorStart := TRUE;
+    ExtractorRunning := TRUE;
+ELSE
+    ExtractorStart := FALSE;
+END_IF;
+
+IF ExtractorDone THEN
+    ExtractorDone := FALSE;
+    ExtractorRunning := FALSE;
+    StopConveyorBelt := FALSE;
+END_IF;]]></xhtml:p>
+          </ST>
+        </body>
+      </pou>
+    </pous>
+  </types>
+  <instances>
+    <configurations>
+      <configuration name="config">
+        <resource name="resource1">
+          <task name="TaskMain" priority="0" interval="T#50ms">
+            <pouInstance name="inst0" typeName="program0"/>
+          </task>
+        </resource>
+      </configuration>
+    </configurations>
+  </instances>
+</project>
