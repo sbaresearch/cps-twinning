@@ -7,7 +7,7 @@ except ImportError:
 # NOTE: https://packaging.python.org/
 setup(
     name='cpstwinning',
-    version='0.1',
+    version='0.2',
     description='',
     # NOTE: long_description displayed on PyPi
     long_description='',
@@ -36,7 +36,9 @@ setup(
         'lxml==3.4.2',
         'six==1.11.0',  # Dependency of pymodbus
         'pymodbus==1.4.0',
-        'scapy==2.3.3',
+        'scapy==2.4.0',
+        'kafka-python==1.4.0',
+        'paho-mqtt==1.3.1'
     ],
     package_data={},
     data_files=None,

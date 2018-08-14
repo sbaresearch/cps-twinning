@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-from cpstwinning.utils import UnknownPlcTagException
+from cpstwinning.utils import UnknownPlcTagException, NotSupportedPlcTagTypeException, NotSupportedPlcTagClassException
 from cpstwinning.constants import LOG_FILE_LOC, LOG_LEVEL
 from cpstwinning.plcmessages import StartMessage, StopMessage, ShowTagsMessage, ShowTagsResponseMessage, \
     GetTagMessage, GetTagResponseMessage, SetTagMessage, SetTagResponseMessage, CloseMessage, TerminateMessage, \
     MonitorMessage, MonitorResponseMessage, GetTagsMessage, GetTagsResponseMessage, GetAllTagNamesMessage, \
-    GetAllTagNamesResponseMessage
+    GetAllTagNamesResponseMessage, StopMonitoringMessage
 from multiprocessing.connection import Listener
 from subprocess import Popen
 from threading import Event, Thread
@@ -41,6 +41,9 @@ class PlcClasses(object):
 class PlcTypes(object):
     INT = "int"
     BOOL = "bool"
+    DINT = "dint"
+    SINT = "sint"
+    TIME = "time"
 
     def __setattr__(self, *_):
         pass
@@ -126,21 +129,32 @@ class PlcSupervisor(object):
                 # Replace the name of the PLC var with its respective index in the vars list
                 for ktbl, vtbl in tmp_mb_map.iteritems():
                     for k, v in vtbl.iteritems():
-                        vtbl[k] = self.vars.index(filter(lambda n: n.get('name').lower() == v.lower(), self.vars)[0])
+                        nm = filter(lambda n: n.get('name').lower() == v.lower(), self.vars)
+                        if len(nm) > 0:
+                            vtbl[k] = self.vars.index(nm[0])
+                        else:
+                            logger.warn(
+                                'Could not successfully initialize Modbus map, because PLC var [name=%s]' +
+                                ' could not be found.', v)
             # { address: idx }
             # address: Modbus address (must start at 1)
             # idx: index of vars array
             self.mb_map = tmp_mb_map
 
     def __notify_watcher(self, idx, new_value):
-        for conn_el in self.conn_watcher:
-            var_name = self.vars[idx]['name']
-            if var_name in conn_el['var_names']:
-                try:
-                    conn_el['conn'].send(MonitorResponseMessage(var_name, new_value))
-                except EOFError:
-                    # Socket is no longer alive
-                    del self.conn_watcher[self.conn_watcher.index(conn_el)]
+        var_value = self.vars[idx]['value']
+        var_name = self.vars[idx]['name']
+        # Only notify monitoring threads if variable value has really changed
+        if var_value is None or var_value != new_value:
+            for conn_el in self.conn_watcher:
+                if var_name in conn_el['var_names']:
+                    try:
+                        conn_el['conn'].send(MonitorResponseMessage(var_name, new_value))
+                    except (EOFError, IOError):
+                        # Socket is no longer alive
+                        del self.conn_watcher[self.conn_watcher.index(conn_el)]
+            # Update variable's value
+            self.vars[idx]['value'] = new_value
 
     def __sync_mb_blocks(self, idx, new_value):
         def get_mb_addr_to_set_tpl():
@@ -149,7 +163,7 @@ class PlcSupervisor(object):
                     if idx == jdx:
                         # Contains (table name, modbus address)
                         # table name = di, co, hr or ir
-                        return (tbl, addr)
+                        return tbl, addr
 
         def set_blk_val(block, addr, new_value):
             block.setValues(addr, [new_value], clbk=False)
@@ -165,12 +179,16 @@ class PlcSupervisor(object):
     def get_callback_function(self):
 
         def my_callback(idx):
-            # Unfortunately, we currently cannot pass the new value from the do_notify method to
-            # the callback, because we don't know the type of the variable set statement
-            # per compile-time. Therefore, we have to retrieve the new value now.
-            new_value = self.get_var_value(self.vars[idx]['name'])
-            self.__sync_mb_blocks(idx, new_value)
-            self.__notify_watcher(idx, new_value)
+            try:
+                # Unfortunately, we currently cannot pass the new value from the do_notify method to
+                # the callback, because we don't know the type of the variable set statement
+                # per compile-time. Therefore, we have to retrieve the new value now.
+                new_value = self.get_var_value(self.vars[idx]['name'])
+                self.__sync_mb_blocks(idx, new_value)
+                self.__notify_watcher(idx, new_value)
+            except (NotSupportedPlcTagClassException, NotSupportedPlcTagTypeException):
+                # Ignore tags of types that we currently do not support
+                pass
 
         return self.callback_type(my_callback)
 
@@ -223,7 +241,7 @@ class PlcSupervisor(object):
                         raise RuntimeError('Could not find matching configuration and resource name.')
                 else:
                     raise RuntimeError(
-                        'Could not find configuration name and resource name in {}.'.format(loc_vars_csv_path))
+                        'Could not find configuration name and resource name in {}.'.format(self.loc_vars_csv_path))
 
         # Validate path
         if not os.path.isfile(path_to_st):
@@ -302,15 +320,21 @@ class PlcSupervisor(object):
                 clazz = self.__get_internal_plc_class(parsed_clazz)
                 parsed_type = row[-2]
                 type = self.__get_internal_plc_type(parsed_type)
-                self.vars.append({'class': clazz, 'name': var_name, 'type': type})
+                self.vars.append({'class': clazz, 'name': var_name, 'type': type, 'value': None})
 
     def __get_internal_plc_type(self, type):
         if type == "INT":
             return PlcTypes().INT
         elif type == "BOOL":
             return PlcTypes().BOOL
+        elif type == "DINT":
+            return PlcTypes().DINT
+        elif type == "SINT":
+            return PlcTypes().SINT
+        elif type == "TIME":
+            return PlcTypes().TIME
         else:
-            raise RuntimeError("Type: '{}' is currently not supported.".format(type))
+            raise NotSupportedPlcTagTypeException("Type: '{}' is currently not supported.".format(type))
 
     def __get_internal_plc_class(self, clazz):
         if clazz == "IN":
@@ -322,7 +346,7 @@ class PlcSupervisor(object):
         elif clazz == "MEM":
             return PlcClasses().MEM
         else:
-            raise RuntimeError("Class: '{}' is currently not supported.".format(clazz))
+            raise NotSupportedPlcTagClassException("Class: '{}' is currently not supported.".format(clazz))
 
     def start(self):
 
@@ -423,16 +447,17 @@ class PlcSupervisor(object):
                     ptr = c_void_p()
                     res = self.__get_ref_by_idx_t(idx, byref(ptr))
                 else:
-                    raise RuntimeError("Class '{}' currently not supported.\n".format(clazz))
+                    raise NotSupportedPlcTagClassException("Class '{}' currently not supported.\n".format(clazz))
                 if res == 0:
                     var_type = None
                     types = PlcTypes()
-                    if d['type'] == types.INT:
+                    if d['type'] == types.INT or d['type'] == types.DINT or d['type'] == types.SINT:
                         var_type = POINTER(c_int)
                     elif d['type'] == types.BOOL:
                         var_type = POINTER(c_bool)
                     if var_type is None:
-                        raise RuntimeError("Type: '{}' is currently not supported.".format(d['type']))
+                        raise NotSupportedPlcTagTypeException(
+                            "Type: '{}' is currently not supported.".format(d['type']))
                     var_res = cast(self.__get_ptr_accessor(clazz, ptr), var_type)
                     return var_res[0]
                 else:
@@ -463,7 +488,7 @@ class PlcSupervisor(object):
                 # Prepare args for lib call
                 idx = self.vars.index(d)
                 c_idx = c_int(idx)
-                if var_type == types.INT:
+                if var_type == types.INT or var_type == types.DINT or var_type == types.SINT:
                     val_to_sync = int(value)
                     new_value = c_int(val_to_sync)
                 elif var_type == types.BOOL:
@@ -472,7 +497,7 @@ class PlcSupervisor(object):
                     new_value = c_bool(val_to_sync)
 
                 if new_value is None:
-                    raise RuntimeError("Type: '{}' is currently not supported.".format(var_type))
+                    raise NotSupportedPlcTagTypeException("Type: '{}' is currently not supported.".format(var_type))
 
                 if clazz == plc_clazzes.IN or clazz == plc_clazzes.OUT or clazz == plc_clazzes.MEM:
                     # TODO: Error handling
@@ -481,7 +506,7 @@ class PlcSupervisor(object):
                     # TODO: Error handling
                     res = self.__set_int_val_by_idx_t(c_idx, byref(new_value))
                 else:
-                    raise RuntimeError("Class '{}' currently not supported.\n".format(clazz))
+                    raise NotSupportedPlcTagClassException("Class '{}' currently not supported.\n".format(clazz))
                 if res != 0:
                     raise RuntimeError("Error! Lib call 'set_val_by_idx' returned error.")
                 else:
@@ -543,19 +568,20 @@ class ListenerThread(Thread):
             elif isinstance(msg, GetTagMessage):
                 try:
                     res = GetTagResponseMessage(self.plc.get_var_value(msg.name))
-                except UnknownPlcTagException as e:
+                except (UnknownPlcTagException, NotSupportedPlcTagTypeException, NotSupportedPlcTagClassException) as e:
                     res = e
                 conn.send(res)
             elif isinstance(msg, SetTagMessage):
                 try:
                     self.plc.set_var_value(msg.name, msg.value)
                     res = SetTagResponseMessage()
-                except UnknownPlcTagException as e:
+                except (UnknownPlcTagException, NotSupportedPlcTagTypeException, NotSupportedPlcTagClassException) as e:
                     res = e
                 conn.send(res)
             elif isinstance(msg, GetTagsMessage):
+                # Filtered out not supported tag types (e.g., time)
                 tags = map(lambda tag: {'name': tag['name'], 'value': self.plc.get_var_value(tag['name'])},
-                           self.plc.vars)
+                           list(filter(lambda x: x['type'] != 'time', self.plc.vars)))
                 conn.send(GetTagsResponseMessage(tags))
             elif isinstance(msg, MonitorMessage):
                 # Wait until build is finished
@@ -570,8 +596,12 @@ class ListenerThread(Thread):
                 self.plc.conn_watcher.append({'conn': conn, 'var_names': var_names})
             elif isinstance(msg, GetAllTagNamesMessage):
                 tag_names = map(lambda t: t['name'], self.plc.vars)
-                logger.debug(tag_names)
                 conn.send(GetAllTagNamesResponseMessage(tag_names))
+            elif isinstance(msg, StopMonitoringMessage):
+                logger.info(len(self.plc.conn_watcher))
+                logger.info(self.plc.conn_watcher.index(conn))
+                del self.plc.conn_watcher[self.plc.conn_watcher.index(conn)]
+                logger.info(self.plc.conn_watcher.index(conn))
             elif isinstance(msg, TerminateMessage):
                 # Notify all clients that monitor that PLC is terminating.
                 logger.debug("PLC is terminating...")

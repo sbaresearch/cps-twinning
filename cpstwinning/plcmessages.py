@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from datetime import datetime
+
 
 class PlcMessage(object):
 
@@ -80,6 +82,12 @@ class MonitorMessage(PlcMessage):
         self.tag_names = tag_names
 
 
+class StopMonitoringMessage(PlcMessage):
+
+    def __init__(self):
+        super(StopMonitoringMessage, self).__init__()
+
+
 class GetAllTagNamesMessage(PlcMessage):
 
     def __init__(self):
@@ -97,6 +105,7 @@ class MonitorResponseMessage(PlcMessage):
 
     def __init__(self, name, value):
         super(MonitorResponseMessage, self).__init__()
+        self.timestamp = datetime.utcnow()
         self.name = name
         self.value = value
 

@@ -1,0 +1,25 @@
+# IntelliJ
+.idea/*
+*.iml
+cmake-build-debug/
+out/
+
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# Package Files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Virtual machine crash logs
+hs_err_pid*
+
+# Maven
+target/*
