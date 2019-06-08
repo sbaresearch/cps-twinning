@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- TODO: Replace with AML root element name -->
+    <title>Candy Factory</title>
+    <style>
+        @import url(./css/style.css);
+
+        .network-device {
+            fill: rgb(31, 119, 180);
+        }
+
+        .physical-device {
+            fill: rgb(163, 55, 49);
+        }
+
+        .node {
+            stroke: #fff;
+            stroke-width: 1.5px;
+            cursor: move;
+        }
+
+        .group {
+            stroke: #fff;
+            stroke-width: 1.5px;
+            cursor: move;
+            opacity: 0.7;
+        }
+
+        .wired-network-link {
+            stroke: #7a4e4e;
+            stroke-width: 3px;
+            stroke-opacity: 1;
+        }
+
+        .wireless-network-link {
+            stroke: #7a0663;
+            stroke-width: 3px;
+            stroke-opacity: 1;
+        }
+
+        .io-link {
+            stroke: #526a61;
+            stroke-width: 3px;
+            stroke-opacity: 1;
+        }
+
+        .label {
+            fill: white;
+            font-family: Verdana;
+            font-size: 12px;
+            text-anchor: start;
+            cursor: move;
+        }
+
+        .var-label .var-value {
+            fill: black;
+            font-family: Verdana;
+            font-size: 10px;
+            text-anchor: start;
+            cursor: move;
+        }
+
+        .variables-link {
+            text-decoration: underline;
+        }
+
+        .variable-blink {
+            background-color: #fff800 !important;
+        }
+
+        /* Show it is fixed to the top */
+        body {
+            min-height: 75rem;
+            padding-top: 4.5rem;
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+    <link rel="stylesheet" href="./css/bootstrap/bootstrap.min.css"/>
+</head>
+<body>
+<nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+    <a class="navbar-brand" href="#">CPS Twinning</a>
+</nav>
+<main role="main" class="container">
+    <!-- TODO: Replace with AML root element name -->
+    <h1>Candy Factory</h1>
+    <hr/>
+    <div class="row">
+        <div id="viz-view" class="col-sm-8"></div>
+        <div id="vars-view" class="col-sm-4">
+            <h5 id="vars-head">Variables</h5>
+            <table id="vars-tbl" class="table table-striped">
+                <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Value</th>
+                </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+
+        </div>
+    </div>
+</main>
+<script src="./js/d3v4.js"></script>
+<script src="./js/cola.min.js"></script>
+<script src="./js/viz.js"></script>
+<script src="./js/jquery-3.3.1.slim.min.js"></script>
+<script src="./js/popper.min.js"></script>
+<script src="./js/bootstrap/bootstrap.min.js"></script>
+</body>
+</html>

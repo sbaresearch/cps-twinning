@@ -130,7 +130,19 @@ class CpsTwinningCli(CLI_wifi):
         """
         self.mn.stop_replication()
 
-      def do_rfid_read(self, line):
+    def do_start_viz(self, _line):
+        """Starts the visualization module.
+           Usage: start_viz
+        """
+        self.mn.start_viz()
+
+    def do_stop_viz(self, _line):
+        """Stops the visualization module.
+           Usage: stop_viz
+        """
+        self.mn.stop_viz()
+
+    def do_rfid_read(self, line):
         """Reads a value by a RFID reader.
            Usage: rfid_read <rfid_reader_name> <value>
         """

@@ -8,7 +8,7 @@ from cpstwinning.topo import CpsTwinningTopo
 from cpstwinning.twins import Motor, Plc, Hmi, CandySensor
 from cpstwinning.amlparser import AmlParser
 from cpstwinning.securitymanager import SecurityManager, RuleTypes
-from cpstwinning.replay import Replay
+from cpstwinning.viz import Viz
 from cpstwinning.replication import Replication
 from cpstwinning.statelogging import StateLogging
 import os
@@ -28,8 +28,8 @@ class CpsTwinning(Mininet_wifi):
         self.topo = None
         self.physical_devices = []
         self.security_manager = None
-        self.replay = Replay()
         self.replication = None
+        self.viz = None
         self.state_logging = None
 
     def twinning(self, aml_path):
@@ -108,7 +108,18 @@ class CpsTwinning(Mininet_wifi):
         self.security_manager = SecurityManager(security_rules)
 
         self.replication = Replication(self)
+        self.viz = Viz(self, parser)
         self.state_logging = StateLogging(self)
+
+    def start_viz(self, print_err=True):
+        if not self.__is_topo_built(print_err):
+            return
+        self.viz.start()
+
+    def stop_viz(self, print_err=True):
+        if not self.__is_topo_built(print_err):
+            return
+        self.viz.stop()
 
     def start_state_logging(self, print_err=True):
         if not self.__is_topo_built(print_err):
@@ -135,6 +146,7 @@ class CpsTwinning(Mininet_wifi):
         for pd in self.physical_devices:
             pd.terminate()
         self.stop_replication(False)
+        self.stop_viz(False)
         super(CpsTwinning, self).stop()
 
     def __is_topo_built(self, print_err):
