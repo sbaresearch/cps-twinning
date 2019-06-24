@@ -6,7 +6,7 @@ On top of CPS Twinning, multiple use cases can be implemented, ranging from beha
 
 ## Installation
 
-CPS Twinning depends on [Mininet](http://mininet.org), [MatIEC](https://bitbucket.org/mjsousa/matiec) and [CPS State Replication](https://github.com/sbaresearch/cps-state-replication).
+CPS Twinning depends on [Mininet-WiFi](https://github.com/MatthiasEckhart/mininet-wifi), [MatIEC](https://bitbucket.org/mjsousa/matiec) and [CPS State Replication](https://github.com/sbaresearch/cps-state-replication).
 
 ### Mininet
 
