@@ -36,7 +36,7 @@ setup(
         'lxml==3.4.2',
         'six==1.11.0',  # Dependency of pymodbus
         'pymodbus==1.4.0',
-        'scapy==2.4.0',
+        'scapy==2.4.3',
         'kafka-python==1.4.0',
         'paho-mqtt==1.3.1'
     ],
