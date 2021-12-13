@@ -33,7 +33,7 @@ setup(
     keywords='cps security',
     packages=find_packages(),
     install_requires=[
-        'lxml==4.6.3',
+        'lxml==4.6.5',
         'six==1.11.0',  # Dependency of pymodbus
         'pymodbus==1.4.0',
         'scapy==2.4.3',
